@@ -1,6 +1,7 @@
 import streamlit as st
 from app.db import connect_db
 import pandas as pd
+from app.ui_utils import inject_custom_css, render_profile_badge
 
 def get_profile(user_id: str):
     conn = connect_db()
@@ -67,12 +68,21 @@ def update_profile(user_id: str, data: dict):
         conn.close()
 
 def profile_page(user_id: str, is_hr: bool = False, view_only: bool = False):
-    st.header("👤 Employee Profile")
+    inject_custom_css()
     profile = get_profile(user_id)
     
     if not profile:
         st.error("User not found.")
         return
+
+    st.markdown(
+        render_profile_badge(
+            profile.get('name', 'Employee'),
+            user_id,
+            profile.get('role', 'employee')
+        ),
+        unsafe_allow_html=True
+    )
 
     # If it's an employee viewing their own, or HR viewing someone else
     with st.form(f"profile_form_{user_id}"):

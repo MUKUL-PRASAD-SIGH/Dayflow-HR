@@ -1,6 +1,7 @@
 import streamlit as st
 import pandas as pd
 from app.db import connect_db
+from app.ui_utils import inject_custom_css, render_metric
 
 def get_payroll(user_id: str):
     conn = connect_db()
@@ -53,6 +54,7 @@ def update_payroll(user_id: str, basic: float, allowances: float, deductions: fl
         conn.close()
 
 def employee_payroll_page(user_id: str):
+    inject_custom_css()
     st.header("💰 My Payroll")
     
     payroll = get_payroll(user_id)
@@ -63,14 +65,19 @@ def employee_payroll_page(user_id: str):
     st.subheader(f"Salary Structure for {payroll['name']}")
     
     col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Basic Salary", f"${payroll['basic_salary']:,.2f}")
-    col2.metric("Allowances", f"${payroll['allowances']:,.2f}")
-    col3.metric("Deductions", f"${payroll['deductions']:,.2f}")
-    col4.metric("Net Salary", f"${payroll['net_salary']:,.2f}")
+    with col1:
+        st.markdown(render_metric("Basic Salary", f"${payroll['basic_salary']:,.2f}", 'blue'), unsafe_allow_html=True)
+    with col2:
+        st.markdown(render_metric("Allowances", f"${payroll['allowances']:,.2f}", 'green'), unsafe_allow_html=True)
+    with col3:
+        st.markdown(render_metric("Deductions", f"${payroll['deductions']:,.2f}", 'orange'), unsafe_allow_html=True)
+    with col4:
+        st.markdown(render_metric("Net Salary", f"${payroll['net_salary']:,.2f}", 'green'), unsafe_allow_html=True)
     
     st.caption(f"Last updated: {payroll['updated_at']}")
 
 def hr_payroll_page():
+    inject_custom_css()
     st.header("💰 Manage Payroll")
     
     conn = connect_db()
@@ -98,8 +105,21 @@ def hr_payroll_page():
         
         payroll = get_payroll(selected_id)
         
+        if payroll:
+            st.markdown("### Current Salary Structure")
+            col1, col2, col3, col4 = st.columns(4)
+            with col1:
+                st.markdown(render_metric("Basic Salary", f"${payroll['basic_salary']:,.2f}", 'blue'), unsafe_allow_html=True)
+            with col2:
+                st.markdown(render_metric("Allowances", f"${payroll['allowances']:,.2f}", 'green'), unsafe_allow_html=True)
+            with col3:
+                st.markdown(render_metric("Deductions", f"${payroll['deductions']:,.2f}", 'orange'), unsafe_allow_html=True)
+            with col4:
+                st.markdown(render_metric("Net Salary", f"${payroll['net_salary']:,.2f}", 'green'), unsafe_allow_html=True)
+            st.markdown("---")
+
         with st.form(f"payroll_form_{selected_id}"):
-            st.subheader("Salary Details")
+            st.subheader("Update Salary Details")
             
             basic = st.number_input("Basic Salary ($)", min_value=0.0, value=float(payroll['basic_salary']) if payroll else 0.0, step=100.0)
             allowances = st.number_input("Allowances ($)", min_value=0.0, value=float(payroll['allowances']) if payroll else 0.0, step=10.0)
