@@ -31,9 +31,9 @@ def verify_password(plain: str, hashed: str) -> bool:
 # Core auth functions
 # ---------------------------------------------------------------------------
 
-def login_user(user_id: str, password: str):
+def login_user(login_id: str, password: str):
     """
-    Validate credentials.
+    Validate credentials using either Employee ID or Email.
 
     Returns:
         (id, role, name) tuple on success, or None on failure.
@@ -44,8 +44,8 @@ def login_user(user_id: str, password: str):
         cursor = conn.cursor()
 
         cursor.execute(
-            "SELECT id, role, name, password FROM users WHERE id = ?",
-            (user_id,),
+            "SELECT id, role, name, password FROM users WHERE id = ? OR gmail = ?",
+            (login_id, login_id),
         )
         row = cursor.fetchone()
 
@@ -71,6 +71,11 @@ def login_user(user_id: str, password: str):
                 pass
 
 
+def validate_password(password: str) -> bool:
+    """Check if the password meets minimum strength requirements (e.g., at least 8 chars)."""
+    return len(password) >= 8
+
+
 def signup_user(user_id: str, gmail: str, password: str, role: str, name: str) -> bool:
     """
     Register a new user.
@@ -78,6 +83,9 @@ def signup_user(user_id: str, gmail: str, password: str, role: str, name: str) -
     Returns True on success, False if the user already exists or on error.
     Raises ValueError with a user-friendly message for validation failures.
     """
+    if not validate_password(password):
+        raise ValueError("Password must be at least 8 characters long.")
+
     conn = None
     try:
         conn = connect_db()
@@ -93,8 +101,8 @@ def signup_user(user_id: str, gmail: str, password: str, role: str, name: str) -
 
         hashed = _hash_password(password)
         cursor.execute(
-            "INSERT INTO users (id, gmail, password, role, name) VALUES (?, ?, ?, ?, ?)",
-            (user_id, gmail, hashed, role.lower(), name),
+            "INSERT INTO users (id, gmail, password, role, name, email_verified) VALUES (?, ?, ?, ?, ?, ?)",
+            (user_id, gmail, hashed, role.lower(), name, True),
         )
         conn.commit()
         return True

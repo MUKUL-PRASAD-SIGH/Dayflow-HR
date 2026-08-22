@@ -62,7 +62,7 @@ def show_leave_requests(status: str, empty_message: str) -> None:
         cursor = conn.cursor()
         cursor.execute(
             """
-            SELECT lr.id, lr.user_id, lr.name, lr.start_date, lr.end_date,
+            SELECT lr.id, lr.user_id, lr.name, lr.leave_type, lr.start_date, lr.end_date,
                    lr.reason, lr.status, lr.created_at,
                    COALESCE(lr.hr_comment, '') AS hr_comment
             FROM leave_requests lr
@@ -96,6 +96,7 @@ def show_leave_requests(status: str, empty_message: str) -> None:
 
             with col1:
                 st.markdown(f"**Employee ID:** {req['user_id']}")
+                st.markdown(f"**Type:** {req.get('leave_type', 'Paid Leave')}")
                 st.markdown(f"**Requested On:** {created.strftime('%Y-%m-%d %H:%M')}")
                 st.markdown(f"**Status:** {req['status'].capitalize()}")
 
@@ -178,6 +179,67 @@ def _update_leave_status(request_id: int, status: str, comment: str = "") -> Non
         st.error(f"❌ Error updating status: {exc}")
     finally:
         _close(conn)
+
+
+# ---------------------------------------------------------------------------
+# HR Dashboard
+# ---------------------------------------------------------------------------
+
+def hr_dashboard_page() -> None:
+    st.title("📊 HR Dashboard")
+    st.subheader("Workforce Metrics (Today)")
+    
+    conn = None
+    try:
+        conn = connect_db()
+        cursor = conn.cursor()
+        
+        # Total employees
+        cursor.execute("SELECT COUNT(*) as count FROM users WHERE role = 'employee'")
+        total_emp = cursor.fetchone()['count']
+        
+        # Present today
+        today = datetime.now().date()
+        cursor.execute("SELECT COUNT(*) as count FROM attendance WHERE date = ? AND status = 'present'", (today,))
+        present_count = cursor.fetchone()['count']
+        
+        # On leave today
+        cursor.execute(
+            """
+            SELECT COUNT(DISTINCT user_id) as count 
+            FROM leave_requests 
+            WHERE status = 'approved' AND start_date <= ? AND end_date >= ?
+            """,
+            (str(today), str(today))
+        )
+        leave_count = cursor.fetchone()['count']
+        
+        absent_count = total_emp - present_count - leave_count
+        if absent_count < 0:
+            absent_count = 0
+            
+    except Exception as exc:
+        st.error(f"Error loading metrics: {exc}")
+        total_emp, present_count, leave_count, absent_count = 0, 0, 0, 0
+    finally:
+        if conn:
+            conn.close()
+
+    col1, col2, col3, col4 = st.columns(4)
+    col1.metric("Total Employees", total_emp)
+    col2.metric("✅ Present Today", present_count)
+    col3.metric("🏖️ On Leave", leave_count)
+    col4.metric("❌ Absent", absent_count)
+    
+    st.markdown("---")
+    st.subheader("Quick Links")
+    c1, c2, c3 = st.columns(3)
+    with c1:
+        st.info("💡 Go to **Leave Requests** to approve pending leaves.")
+    with c2:
+        st.success("💰 Manage salaries in **Payroll**.")
+    with c3:
+        st.warning("📅 Check daily logs in **Attendance**.")
 
 
 # ---------------------------------------------------------------------------
@@ -290,8 +352,8 @@ def hr_leave_page() -> None:
         with st.sidebar:
             selected = option_menu(
                 menu_title="HR Portal",
-                options=["Leave Requests", "Employee Directory", "Email", "Logout"],
-                icons=["check2-square", "people", "envelope", "box-arrow-left"],
+                options=["Dashboard", "Leave Requests", "Employee Directory", "Profiles", "Attendance", "Payroll", "Email", "Logout"],
+                icons=["speedometer2", "clipboard-check", "people", "person-badge", "clock-history", "currency-dollar", "envelope", "box-arrow-right"],
                 menu_icon="briefcase",
                 default_index=0,
                 styles={
@@ -308,14 +370,28 @@ def hr_leave_page() -> None:
     except ImportError:
         selected = st.sidebar.radio(
             "HR Portal",
-            ["Leave Requests", "Employee Directory", "Email", "Logout"],
+            ["Dashboard", "Leave Requests", "Employee Directory", "Profiles", "Attendance", "Payroll", "Email", "Logout"],
         )
 
-    if selected == "Leave Requests":
+    if selected == "Dashboard":
+        hr_dashboard_page()
+        
+    elif selected == "Leave Requests":
         approve_leave_page()
 
     elif selected == "Employee Directory":
         employee_details_page()
+        
+    elif selected == "Profiles":
+        _render_profiles_page()
+
+    elif selected == "Attendance":
+        from app.attendance import hr_attendance_page
+        hr_attendance_page()
+        
+    elif selected == "Payroll":
+        from app.payroll import hr_payroll_page
+        hr_payroll_page()
 
     elif selected == "Email":
         _render_email_page()
@@ -323,6 +399,34 @@ def hr_leave_page() -> None:
     elif selected == "Logout":
         st.session_state.clear()
         st.rerun()
+
+def _render_profiles_page() -> None:
+    st.subheader("👤 Manage Employee Profiles")
+    conn = None
+    try:
+        from app.db import connect_db
+        conn = connect_db()
+        cursor = conn.cursor()
+        cursor.execute("SELECT id, name FROM users ORDER BY name")
+        employees = cursor.fetchall()
+    except Exception as exc:
+        st.error(f"Error fetching employees: {exc}")
+        return
+    finally:
+        if conn:
+            conn.close()
+            
+    if not employees:
+        st.info("No employees found.")
+        return
+        
+    options = {f"{emp['name']} ({emp['id']})": emp['id'] for emp in employees}
+    selected_name = st.selectbox("Select Employee", list(options.keys()))
+    if selected_name:
+        selected_id = options[selected_name]
+        st.markdown("---")
+        from app.profile import profile_page
+        profile_page(selected_id, is_hr=True)
 
 
 # ---------------------------------------------------------------------------

@@ -67,6 +67,7 @@ def request_leave_page() -> None:
         with col2:
             end_date = st.date_input("To Date", min_value=start_date, value=start_date)
 
+        leave_type = st.selectbox("Leave Type", ["Paid Leave", "Sick Leave", "Unpaid Leave"])
         reason = st.text_area("Reason for Leave", placeholder="Describe your reason…")
         submitted = st.form_submit_button("Submit Request")
 
@@ -85,10 +86,10 @@ def request_leave_page() -> None:
             cursor = conn.cursor()
             cursor.execute(
                 """
-                INSERT INTO leave_requests (user_id, name, start_date, end_date, reason, status)
-                VALUES (?, ?, ?, ?, ?, 'pending')
+                INSERT INTO leave_requests (user_id, name, leave_type, start_date, end_date, reason, status)
+                VALUES (?, ?, ?, ?, ?, ?, 'pending')
                 """,
-                (user_id, user_name, str(start_date), str(end_date), reason.strip()),
+                (user_id, user_name, leave_type, str(start_date), str(end_date), reason.strip()),
             )
             conn.commit()
             st.session_state.leave_submitted = True
@@ -115,7 +116,7 @@ def show_leave_status(user_id: str) -> None:
         cursor = conn.cursor()
         cursor.execute(
             """
-            SELECT id, start_date, end_date, reason, status,
+            SELECT id, leave_type, start_date, end_date, reason, status,
                    COALESCE(hr_comment, '') AS hr_comment,
                    created_at
             FROM leave_requests
@@ -155,6 +156,7 @@ def show_leave_status(user_id: str) -> None:
 
             with col1:
                 st.write(f"**Request ID:** #{leave['id']}")
+                st.write(f"**Type:** {leave.get('leave_type', 'Paid Leave')}")
                 st.write(f"**From:** {start}")
                 st.write(f"**To:** {end}")
                 st.write(f"**Duration:** {duration} day{'s' if duration != 1 else ''}")
@@ -238,7 +240,7 @@ def employee_leave_page() -> None:
     st.sidebar.title(f"👤 {st.session_state.get('user_name', 'Employee')}")
     page = st.sidebar.radio(
         "Navigation",
-        ["🏠 Dashboard", "📝 Request Leave", "📋 Leave Status", "📜 History"],
+        ["🏠 Dashboard", "👤 Profile", "🕒 Attendance", "💰 Payroll", "📝 Request Leave", "📋 Leave Status", "📜 History"],
     )
     st.sidebar.markdown("---")
 
@@ -246,10 +248,33 @@ def employee_leave_page() -> None:
         st.session_state.clear()
         st.rerun()
 
-    st.title("🏝️ Employee Leave Portal")
+    st.title("🏝️ Employee Portal")
 
     if page == "🏠 Dashboard":
-        st.subheader("Welcome to your Leave Dashboard")
+        st.subheader("Welcome to your Dashboard")
+        
+        # Today's Attendance Quick Actions
+        st.markdown("### 🕒 Today's Attendance")
+        from app.attendance import get_today_attendance, check_in, check_out
+        today_rec = get_today_attendance(st.session_state.user_id)
+        
+        col_a, col_b = st.columns(2)
+        with col_a:
+            if not today_rec:
+                st.info("Status: Absent")
+            else:
+                st.success(f"Status: Present (In: {today_rec['check_in']})")
+        with col_b:
+            if not today_rec:
+                if st.button("Check In Now"):
+                    check_in(st.session_state.user_id)
+                    st.rerun()
+            elif not today_rec.get('check_out'):
+                if st.button("Check Out Now"):
+                    check_out(st.session_state.user_id)
+                    st.rerun()
+                    
+        st.markdown("### 📋 Leave Overview")
 
         # Quick stats from DB
         conn = None
@@ -272,6 +297,18 @@ def employee_leave_page() -> None:
         col3.metric("🟡 Pending", counts.get("pending", 0))
 
         show_leave_status(st.session_state.user_id)
+
+    elif page == "👤 Profile":
+        from app.profile import profile_page
+        profile_page(st.session_state.user_id, is_hr=False)
+
+    elif page == "🕒 Attendance":
+        from app.attendance import employee_attendance_page
+        employee_attendance_page(st.session_state.user_id)
+        
+    elif page == "💰 Payroll":
+        from app.payroll import employee_payroll_page
+        employee_payroll_page(st.session_state.user_id)
 
     elif page == "📝 Request Leave":
         request_leave_page()

@@ -48,6 +48,7 @@ def init_db() -> None:
                 password TEXT NOT NULL,
                 role     TEXT NOT NULL CHECK(role IN ('employee', 'hr')),
                 name     TEXT NOT NULL,
+                email_verified BOOLEAN DEFAULT FALSE,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP
             )
             """
@@ -60,6 +61,7 @@ def init_db() -> None:
                 id         INTEGER PRIMARY KEY AUTOINCREMENT,
                 user_id    TEXT NOT NULL REFERENCES users(id),
                 name       TEXT NOT NULL,
+                leave_type TEXT NOT NULL DEFAULT 'Paid Leave',
                 start_date TEXT NOT NULL,
                 end_date   TEXT NOT NULL,
                 reason     TEXT NOT NULL,
@@ -68,6 +70,64 @@ def init_db() -> None:
                 hr_comment TEXT,
                 created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
                 updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+
+        # Employees table
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS employees (
+                id           TEXT PRIMARY KEY REFERENCES users(id),
+                phone        TEXT,
+                address      TEXT,
+                department   TEXT,
+                designation  TEXT,
+                joining_date DATE,
+                profile_pic  BLOB
+            )
+            """
+        )
+
+        # Documents table
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS documents (
+                id            INTEGER PRIMARY KEY AUTOINCREMENT,
+                employee_id   TEXT REFERENCES users(id),
+                document_name TEXT,
+                document_url  TEXT,
+                uploaded_at   DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+            """
+        )
+
+        # Attendance table
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS attendance (
+                id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                employee_id  TEXT NOT NULL REFERENCES users(id),
+                date         DATE NOT NULL,
+                check_in     TIME,
+                check_out    TIME,
+                status       TEXT DEFAULT 'absent'
+                             CHECK(status IN ('present', 'absent', 'half_day', 'leave')),
+                UNIQUE(employee_id, date)
+            )
+            """
+        )
+
+        # Payroll table
+        cursor.execute(
+            """
+            CREATE TABLE IF NOT EXISTS payroll (
+                id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                employee_id  TEXT UNIQUE REFERENCES users(id),
+                basic_salary REAL DEFAULT 0,
+                allowances   REAL DEFAULT 0,
+                deductions   REAL DEFAULT 0,
+                updated_at   DATETIME DEFAULT CURRENT_TIMESTAMP
             )
             """
         )

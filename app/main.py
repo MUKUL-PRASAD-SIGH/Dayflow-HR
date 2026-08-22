@@ -10,7 +10,7 @@ role-based dashboard after login.
 
 import streamlit as st
 
-from app.auth import login_user, signup_user, user_exists
+from app.auth import login_user, signup_user, user_exists, validate_password
 from app.db import init_db
 from app.otp_utils import (
     clear_otp,
@@ -54,7 +54,7 @@ if not st.session_state.logged_in:
         st.header("Login to Your Account")
 
         with st.form("login_form"):
-            uid = st.text_input("Employee / HR ID", key="login_id")
+            uid = st.text_input("Employee ID / Email", key="login_id")
             pwd = st.text_input("Password", type="password", key="login_pass")
             submitted = st.form_submit_button("Login")
 
@@ -167,6 +167,8 @@ if not st.session_state.logged_in:
                     st.warning("Please fill in all fields.")
                 elif pwd != confirm_pwd:
                     st.error("Passwords do not match.")
+                elif not validate_password(pwd):
+                    st.error("Password must be at least 8 characters long.")
                 elif user_exists(user_id=uid, gmail=gmail):
                     st.error(
                         f"A user with ID '{uid}' or email '{gmail}' already exists."
