@@ -13,6 +13,7 @@ from datetime import date, datetime
 import streamlit as st
 
 from app.db import connect_db
+from app.ui_utils import inject_custom_css, render_metric, render_profile_badge, render_badge
 
 
 # ---------------------------------------------------------------------------
@@ -88,17 +89,17 @@ def show_leave_requests(status: str, empty_message: str) -> None:
         days = (end - start).days + 1
         created = _parse_datetime(req["created_at"])
 
+        badge_html = render_badge(req['status'].title(), req['status'])
         with st.expander(
-            f"📅 {req['name']} – {days} day{'s' if days != 1 else ''} "
-            f"({start} → {end})"
+            f"📅 {req['name']} — {dict(req).get('leave_type', 'Paid Leave')} ({req['status'].capitalize()})"
         ):
             col1, col2 = st.columns(2)
 
             with col1:
-                st.markdown(f"**Employee ID:** {req['user_id']}")
+                st.markdown(f"**Employee ID:** `{req['user_id']}`")
                 st.markdown(f"**Type:** {dict(req).get('leave_type', 'Paid Leave')}")
                 st.markdown(f"**Requested On:** {created.strftime('%Y-%m-%d %H:%M')}")
-                st.markdown(f"**Status:** {req['status'].capitalize()}")
+                st.markdown(f"**Status:** {badge_html}", unsafe_allow_html=True)
 
             with col2:
                 st.markdown(f"**From:** {start}")
@@ -226,20 +227,48 @@ def hr_dashboard_page() -> None:
             conn.close()
 
     col1, col2, col3, col4 = st.columns(4)
-    col1.metric("Total Employees", total_emp)
-    col2.metric("✅ Present Today", present_count)
-    col3.metric("🏖️ On Leave", leave_count)
-    col4.metric("❌ Absent", absent_count)
+    with col1:
+        st.markdown(render_metric("Total Employees", str(total_emp), 'blue'), unsafe_allow_html=True)
+    with col2:
+        st.markdown(render_metric("Present Today", str(present_count), 'green'), unsafe_allow_html=True)
+    with col3:
+        st.markdown(render_metric("On Leave", str(leave_count), 'orange'), unsafe_allow_html=True)
+    with col4:
+        st.markdown(render_metric("Absent Today", str(absent_count), 'red'), unsafe_allow_html=True)
     
     st.markdown("---")
-    st.subheader("Quick Links")
+    st.subheader("Quick Actions")
     c1, c2, c3 = st.columns(3)
     with c1:
-        st.info("💡 Go to **Leave Requests** to approve pending leaves.")
+        st.markdown(
+            """
+            <div class="glass-card" style="padding:15px; border-left:4px solid #3363b0;">
+                <h5 style="margin:0 0 5px 0; color:#ffffff;">📝 Leave Approval</h5>
+                <p style="margin:0; font-size:12px; color:#a0aec0;">Review and approve pending employee leave requests.</p>
+            </div>
+            """, 
+            unsafe_allow_html=True
+        )
     with c2:
-        st.success("💰 Manage salaries in **Payroll**.")
+        st.markdown(
+            """
+            <div class="glass-card" style="padding:15px; border-left:4px solid #10b981;">
+                <h5 style="margin:0 0 5px 0; color:#ffffff;">💰 Payroll Control</h5>
+                <p style="margin:0; font-size:12px; color:#a0aec0;">Configure salary structures and verify net payout totals.</p>
+            </div>
+            """, 
+            unsafe_allow_html=True
+        )
     with c3:
-        st.warning("📅 Check daily logs in **Attendance**.")
+        st.markdown(
+            """
+            <div class="glass-card" style="padding:15px; border-left:4px solid #f59e0b;">
+                <h5 style="margin:0 0 5px 0; color:#ffffff;">📅 Attendance Tracker</h5>
+                <p style="margin:0; font-size:12px; color:#a0aec0;">Monitor daily check-in and check-out logs.</p>
+            </div>
+            """, 
+            unsafe_allow_html=True
+        )
 
 
 # ---------------------------------------------------------------------------
@@ -285,27 +314,27 @@ def employee_details_page() -> None:
         finally:
             _close(conn2)
 
-        role_badge_color = "#3363b0" if emp["role"] == "hr" else "#2d7a3a"
+        initials = "".join([part[0] for part in emp['name'].split() if part])[:2].upper()
+        role_badge = render_badge(emp['role'].title(), emp['role'])
         st.markdown(
             f"""
-            <div style="background:#1a1d23;padding:16px;border-radius:10px;
-                        margin-bottom:12px;border:1px solid #333;">
-              <div style="display:flex;justify-content:space-between;align-items:center;">
-                <div>
-                  <h4 style="margin:0 0 8px 0;">
-                    {emp['name']}
-                    <span style="font-size:.8em;background:{role_badge_color};
-                                 padding:2px 8px;border-radius:12px;margin-left:8px;">
-                      {emp['role'].title()}
-                    </span>
-                  </h4>
-                  <p style="margin:4px 0;">🆔 {emp['id']}</p>
-                  <p style="margin:4px 0;">📧 {emp['gmail']}</p>
+            <div class="glass-card" style="padding: 18px 24px;">
+              <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px;">
+                <div style="display:flex;align-items:center;">
+                  <div class="avatar-circle">{initials}</div>
+                  <div>
+                    <h4 style="margin:0 0 4px 0; color:#ffffff; font-family:'Outfit';">
+                      {emp['name']}
+                      {role_badge}
+                    </h4>
+                    <p style="margin:2px 0; color:#a0aec0; font-size:13px;">🆔 {emp['id']}</p>
+                    <p style="margin:2px 0; color:#a0aec0; font-size:13px;">📧 {emp['gmail']}</p>
+                  </div>
                 </div>
                 <div style="text-align:right;">
-                  <div style="background:#262626;padding:6px 14px;border-radius:20px;">
-                    📝 Approved Leaves: <b>{leave_count}</b>
-                  </div>
+                  <span class="custom-badge badge-approved" style="font-size:12px; font-weight:600; padding: 6px 14px;">
+                    Approved Leaves: <b>{leave_count}</b>
+                  </span>
                 </div>
               </div>
             </div>
@@ -344,6 +373,16 @@ def approve_leave_page() -> None:
 
 def hr_leave_page() -> None:
     """Render the full HR portal with sidebar navigation."""
+    inject_custom_css()
+
+    st.markdown(
+        render_profile_badge(
+            st.session_state.get("user_name", "HR Officer"),
+            st.session_state.user_id,
+            "hr"
+        ),
+        unsafe_allow_html=True
+    )
 
     # Try to use streamlit-option-menu; fall back to st.sidebar.radio
     try:
