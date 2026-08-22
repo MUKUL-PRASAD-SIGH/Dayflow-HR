@@ -14,6 +14,7 @@ from datetime import date, datetime
 import streamlit as st
 
 from app.db import connect_db
+from app.ui_utils import inject_custom_css, render_metric, render_profile_badge, render_badge
 
 
 # ---------------------------------------------------------------------------
@@ -146,25 +147,29 @@ def show_leave_status(user_id: str) -> None:
     for leave in leaves:
         status = str(leave["status"]).lower()
         emoji = _STATUS_EMOJI.get(status, "❓")
+        badge_html = render_badge(status.title(), status)
 
-        with st.expander(f"{emoji} Leave #{leave['id']} – {status.title()}"):
-            col1, col2 = st.columns(2)
-
+        with st.expander(f"{emoji} Leave #{leave['id']} — {leave.get('leave_type', 'Paid Leave')} ({status.title()})"):
             start = _parse_date(leave["start_date"])
             end = _parse_date(leave["end_date"])
             duration = (end - start).days + 1
 
-            with col1:
-                st.write(f"**Request ID:** #{leave['id']}")
-                st.write(f"**Type:** {leave.get('leave_type', 'Paid Leave')}")
-                st.write(f"**From:** {start}")
-                st.write(f"**To:** {end}")
-                st.write(f"**Duration:** {duration} day{'s' if duration != 1 else ''}")
+            st.markdown(
+                f"""
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                    <div>
+                        <b>Duration:</b> {duration} day{'s' if duration != 1 else ''} ({start} to {end})
+                    </div>
+                    <div>
+                        {badge_html}
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
 
-            with col2:
-                st.markdown(f"**Status:** {emoji} {status.title()}")
-                if leave["hr_comment"]:
-                    st.write(f"**HR Comment:** {leave['hr_comment']}")
+            if leave["hr_comment"]:
+                st.markdown(f"**HR Comment:** *{leave['hr_comment']}*")
 
             st.write("**Reason:**")
             st.write(leave["reason"] or "No reason provided.")
@@ -236,6 +241,8 @@ def employee_leave_page() -> None:
         st.error("Please log in to access this page.")
         return
 
+    inject_custom_css()
+
     # Sidebar
     st.sidebar.title(f"👤 {st.session_state.get('user_name', 'Employee')}")
     page = st.sidebar.radio(
@@ -248,31 +255,46 @@ def employee_leave_page() -> None:
         st.session_state.clear()
         st.rerun()
 
-    st.title("🏝️ Employee Portal")
+    # Premium Profile Badge Header at top of portal
+    st.markdown(
+        render_profile_badge(
+            st.session_state.get("user_name", "Employee"),
+            st.session_state.user_id,
+            "employee"
+        ),
+        unsafe_allow_html=True
+    )
 
     if page == "🏠 Dashboard":
-        st.subheader("Welcome to your Dashboard")
-        
         # Today's Attendance Quick Actions
         st.markdown("### 🕒 Today's Attendance")
         from app.attendance import get_today_attendance, check_in, check_out
         today_rec = get_today_attendance(st.session_state.user_id)
         
-        col_a, col_b = st.columns(2)
+        col_a, col_b = st.columns([3, 2])
         with col_a:
             if not today_rec:
-                st.info("Status: Absent")
+                st.markdown(
+                    f"<div style='margin-top: 10px;'>Status: {render_badge('Absent', 'absent')}</div>", 
+                    unsafe_allow_html=True
+                )
             else:
-                st.success(f"Status: Present (In: {today_rec['check_in']})")
+                checkout_str = f" | Out: {today_rec['check_out']}" if today_rec.get('check_out') else ""
+                st.markdown(
+                    f"<div style='margin-top: 10px;'>Status: {render_badge('Present', 'present')} <span style='color:#a0aec0;font-size:14px;margin-left:10px;'>(In: {today_rec['check_in']}{checkout_str})</span></div>", 
+                    unsafe_allow_html=True
+                )
         with col_b:
             if not today_rec:
-                if st.button("Check In Now"):
+                if st.button("Check In Now", use_container_width=True):
                     check_in(st.session_state.user_id)
                     st.rerun()
             elif not today_rec.get('check_out'):
-                if st.button("Check Out Now"):
+                if st.button("Check Out Now", use_container_width=True):
                     check_out(st.session_state.user_id)
                     st.rerun()
+            else:
+                st.markdown("<div style='color:#10b981;font-weight:600;margin-top:10px;'>Done for the day! 🎉</div>", unsafe_allow_html=True)
                     
         st.markdown("### 📋 Leave Overview")
 
@@ -292,9 +314,12 @@ def employee_leave_page() -> None:
             _close(conn)
 
         col1, col2, col3 = st.columns(3)
-        col1.metric("Total Requests", sum(counts.values()))
-        col2.metric("✅ Approved", counts.get("approved", 0))
-        col3.metric("🟡 Pending", counts.get("pending", 0))
+        with col1:
+            st.markdown(render_metric("Total Requests", str(sum(counts.values())), 'blue'), unsafe_allow_html=True)
+        with col2:
+            st.markdown(render_metric("Approved Leaves", str(counts.get("approved", 0)), 'green'), unsafe_allow_html=True)
+        with col3:
+            st.markdown(render_metric("Pending Leaves", str(counts.get("pending", 0)), 'orange'), unsafe_allow_html=True)
 
         show_leave_status(st.session_state.user_id)
 

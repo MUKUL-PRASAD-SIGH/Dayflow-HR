@@ -2,6 +2,7 @@ import streamlit as st
 import datetime
 from app.db import connect_db
 import pandas as pd
+from app.ui_utils import inject_custom_css, render_badge
 
 def get_today_attendance(user_id: str):
     conn = connect_db()
@@ -66,13 +67,14 @@ def check_out(user_id: str):
         conn.close()
 
 def employee_attendance_page(user_id: str):
+    inject_custom_css()
     st.header("🕒 Attendance")
     
     today_rec = get_today_attendance(user_id)
     
     st.subheader("Today's Status")
     if not today_rec:
-        st.info("You have not checked in today.")
+        st.markdown(f"<div style='margin-bottom: 15px;'>Current Status: {render_badge('Absent', 'absent')}</div>", unsafe_allow_html=True)
         if st.button("Check In"):
             if check_in(user_id):
                 st.success("Checked in successfully!")
@@ -80,7 +82,7 @@ def employee_attendance_page(user_id: str):
             else:
                 st.error("Check-in failed. You might already be checked in.")
     elif today_rec and not today_rec.get('check_out'):
-        st.success(f"Checked in at {today_rec['check_in']}")
+        st.markdown(f"<div style='margin-bottom: 15px;'>Current Status: {render_badge('Present', 'present')} <span style='color:#a0aec0;font-size:14px;margin-left:10px;'>(In: {today_rec['check_in']})</span></div>", unsafe_allow_html=True)
         if st.button("Check Out"):
             if check_out(user_id):
                 st.success("Checked out successfully!")
@@ -88,9 +90,8 @@ def employee_attendance_page(user_id: str):
             else:
                 st.error("Check-out failed.")
     else:
-        st.success(f"Checked in at {today_rec['check_in']}")
-        st.info(f"Checked out at {today_rec['check_out']}")
-        st.write("Done for the day!")
+        st.markdown(f"<div style='margin-bottom: 15px;'>Current Status: {render_badge('Present', 'present')} <span style='color:#a0aec0;font-size:14px;margin-left:10px;'>(In: {today_rec['check_in']} | Out: {today_rec['check_out']})</span></div>", unsafe_allow_html=True)
+        st.markdown("<div style='color:#10b981;font-weight:600;'>Done for the day! 🎉</div>", unsafe_allow_html=True)
 
     st.markdown("---")
     st.subheader("Attendance History")
@@ -110,6 +111,7 @@ def employee_attendance_page(user_id: str):
         conn.close()
 
 def hr_attendance_page():
+    inject_custom_css()
     st.header("🕒 Daily Attendance Overview")
     
     view_date = st.date_input("Select Date", value=datetime.date.today())
