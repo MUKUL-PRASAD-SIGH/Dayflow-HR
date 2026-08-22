@@ -30,6 +30,9 @@ st.set_page_config(
     layout="centered",
 )
 
+from app.ui_utils import inject_custom_css
+inject_custom_css()
+
 # ── Session-state defaults ────────────────────────────────────────────────────
 for key, default in [
     ("logged_in", False),
@@ -50,8 +53,16 @@ if not st.session_state.logged_in:
 
     # ── LOGIN VIEW ────────────────────────────────────────────────────────────
     if st.session_state.show_login:
-        st.title("🧠 :blue[Dayflow] HR")
-        st.header("Login to Your Account")
+        st.markdown(
+            """
+            <div style="text-align: center; margin-bottom: 2rem;">
+                <h1 style="color: #ffffff; font-size: 3rem; margin-bottom: 0px;">🧠 Dayflow <span style="color: #3363b0;">HR</span></h1>
+                <p style="color: #a0aec0; font-size: 1.1rem; margin-top: 5px;">Every workday, perfectly aligned.</p>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+        st.subheader("Login to Your Account")
 
         with st.form("login_form"):
             uid = st.text_input("Employee ID / Email", key="login_id")
@@ -80,8 +91,16 @@ if not st.session_state.logged_in:
 
     # ── SIGNUP VIEW ───────────────────────────────────────────────────────────
     else:
-        st.title("🧠 :blue[Dayflow] HR")
-        st.header("Create a New Account")
+        st.markdown(
+            """
+            <div style="text-align: center; margin-bottom: 2rem;">
+                <h1 style="color: #ffffff; font-size: 3rem; margin-bottom: 0px;">🧠 Dayflow <span style="color: #3363b0;">HR</span></h1>
+                <p style="color: #a0aec0; font-size: 1.1rem; margin-top: 5px;">Every workday, perfectly aligned.</p>
+            </div>
+            """,
+            unsafe_allow_html=True
+        )
+        st.subheader("Create a New Account")
 
         # ── OTP Verification Step ─────────────────────────────────────────
         if (
