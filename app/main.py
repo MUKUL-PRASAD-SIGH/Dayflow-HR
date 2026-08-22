@@ -111,9 +111,15 @@ if not st.session_state.logged_in:
                             )
                             if ok:
                                 clear_otp(signup_data["gmail"])
+                                
+                                # Log the user in automatically
+                                st.session_state.logged_in = True
+                                st.session_state.user_id = signup_data["id"]
+                                st.session_state.user_role = signup_data["role"]
+                                st.session_state.user_name = signup_data["name"]
+                                
                                 del st.session_state.signup_data
-                                st.success("🎉 Account created! Please log in.")
-                                st.session_state.show_login = True
+                                st.success("🎉 Account created successfully!")
                                 st.rerun()
                             else:
                                 st.error(

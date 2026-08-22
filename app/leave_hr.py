@@ -96,7 +96,7 @@ def show_leave_requests(status: str, empty_message: str) -> None:
 
             with col1:
                 st.markdown(f"**Employee ID:** {req['user_id']}")
-                st.markdown(f"**Type:** {req.get('leave_type', 'Paid Leave')}")
+                st.markdown(f"**Type:** {dict(req).get('leave_type', 'Paid Leave')}")
                 st.markdown(f"**Requested On:** {created.strftime('%Y-%m-%d %H:%M')}")
                 st.markdown(f"**Status:** {req['status'].capitalize()}")
 
@@ -441,7 +441,7 @@ def _render_email_page() -> None:
 
     try:
         from app.gmail_reader import display_emails, read_emails
-        from app.email_classifier import classify_emails_with_gemini
+        from app.email_classifier import classify_emails_with_gemini, parse_resume_with_gemini
     except ImportError as exc:
         st.error(f"Email modules not available: {exc}")
         return
@@ -464,18 +464,47 @@ def _render_email_page() -> None:
             result = classify_emails_with_gemini(emails)
 
         if result:
-            category_emoji = {"Important": "🚨", "General": "📂", "Spam": "🗑️"}
-            for category in ["Important", "General", "Spam"]:
+            category_emoji = {
+                "Job Application": "📄",
+                "Important": "🚨", 
+                "General": "📂", 
+                "Spam": "🗑️"
+            }
+            
+            for category in ["Job Application", "Important", "General", "Spam"]:
+                mails = result.get(category, [])
                 with st.expander(
-                    f"{category_emoji[category]} {category} ({len(result.get(category, []))})",
-                    expanded=True,
+                    f"{category_emoji[category]} {category} ({len(mails)})",
+                    expanded=(category in ["Job Application", "Important"]),
                 ):
-                    mails = result.get(category, [])
                     if mails:
                         for mail in mails:
                             subject = mail.get("subject", "(no subject)")
                             sender = mail.get("from", "")
                             st.write(f"➡️ **{subject}** — {sender}")
+                            
+                            # Parse Resume if it's a Job Application
+                            if category == "Job Application":
+                                if st.button(f"🔍 AI Analyze Resume", key=f"analyze_{mail['id']}"):
+                                    with st.spinner("Extracting intelligence..."):
+                                        parsed = parse_resume_with_gemini(mail.get("body", ""))
+                                        if parsed:
+                                            st.info(f"**Candidate:** {parsed.get('Candidate Name')}")
+                                            st.write(f"**Role:** {parsed.get('Role Applied For')}")
+                                            st.write(f"**Experience:** {parsed.get('Years of Experience')}")
+                                            st.write(f"**Education:** {parsed.get('Education')}")
+                                            
+                                            skills = parsed.get('Skills', [])
+                                            if skills:
+                                                st.write("**Skills:**")
+                                                # create a neat tag layout
+                                                tags = " ".join([f"`{s}`" for s in skills])
+                                                st.markdown(tags)
+                                                
+                                            st.success(f"**AI Fit Summary:** {parsed.get('Summary')}")
+                                        else:
+                                            st.error("Failed to parse resume intelligence.")
+                                st.markdown("---")
                     else:
                         st.info("No emails in this category.")
         else:
