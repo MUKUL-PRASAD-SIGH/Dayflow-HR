@@ -8,9 +8,9 @@ A role-based HR Management System built with **Streamlit + SQLite + Gmail API + 
 
 | Area | Details |
 |------|---------|
-| **Auth** | Sign-up with OTP email verification, hashed passwords, role-based login |
-| **Employee Portal** | Apply for leave, track status, view approved history |
-| **HR Portal** | Approve / reject leave requests, view employee directory |
+| **Auth** | Sign-up with OTP email verification, robust password validation, login by Employee ID or Email |
+| **Employee Portal** | Manage profile, Check-in/out attendance, View payroll, Apply for leave (Sick/Paid/Unpaid), Track status |
+| **HR Portal** | Real-time metrics dashboard, View/edit employee profiles, Monitor daily attendance logs, Manage payroll structures, Approve/reject leave requests |
 | **Gmail Dashboard** | Read inbox via Gmail API (OAuth 2.0) |
 | **AI Classification** | Classify emails into Important / General / Spam using Gemini AI |
 
@@ -25,8 +25,11 @@ Dayflow-HR/
 │   ├── db.py                # SQLite connection + auto schema init
 │   ├── auth.py              # Login, signup, password hashing
 │   ├── otp_utils.py         # OTP generation, verification, email delivery
-│   ├── leave_employee.py    # Employee leave management UI
-│   ├── leave_hr.py          # HR leave management dashboard
+│   ├── profile.py           # Employee profile management
+│   ├── attendance.py        # Daily check-in/out and logging
+│   ├── payroll.py           # Salary structure and net pay calculation
+│   ├── leave_employee.py    # Employee dashboard (attendance, payroll, leaves)
+│   ├── leave_hr.py          # HR dashboard (metrics, profiles, payroll, leaves)
 │   ├── gmail_reader.py      # Gmail API integration
 │   └── email_classifier.py  # Gemini AI email classification
 ├── tests/
