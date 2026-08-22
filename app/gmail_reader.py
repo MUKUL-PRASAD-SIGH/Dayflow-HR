@@ -229,25 +229,29 @@ def display_emails(emails: List[Dict[str, Any]]) -> None:
         st.warning("No emails found in your inbox.")
         return
 
+    from app.ui_utils import render_badge
     for email in emails:
+        attachment_badge = f" {render_badge('Attachment', 'employee')}" if email["has_attachments"] else ""
         with st.expander(f"✉️ {email['subject']} — {email['from']}"):
-            col1, col2 = st.columns([1, 3])
-            with col1:
-                st.markdown("**From:**")
-                st.markdown("**To:**")
-                st.markdown("**Date:**")
-                if email["has_attachments"]:
-                    st.markdown("**Attachments:**")
-            with col2:
-                st.text(email["from"])
-                st.text(email["to"])
-                st.text(email["date"])
-                if email["has_attachments"]:
-                    st.text("📎 Yes")
-
-            st.markdown("---")
+            st.markdown(
+                f"""
+                <div style="margin-bottom: 12px; font-size:14px; color:#e2e8f0; line-height: 1.6;">
+                    <div><b>From:</b> {email['from']}</div>
+                    <div><b>To:</b> {email['to']}</div>
+                    <div><b>Date:</b> {email['date']}{attachment_badge}</div>
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+            
             st.markdown("**Preview:**")
-            st.text(email["snippet"])
-            st.markdown("---")
+            st.info(email["snippet"])
+            
             st.markdown("**Full Body:**")
-            st.text(email["body"] or "(No plain-text body found)")
+            st.text_area(
+                "Email Content", 
+                value=email["body"] or "(No plain-text body found)", 
+                height=180, 
+                disabled=True, 
+                key=f"body_view_{email['id']}"
+            )

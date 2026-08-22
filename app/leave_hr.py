@@ -492,13 +492,8 @@ def _render_email_page() -> None:
         st.warning("No emails found, or there was an error fetching your inbox.")
         return
 
-    tab_all, tab_ai = st.tabs(["📧 All Emails", "🤖 AI Classification"])
-
-    with tab_all:
-        display_emails(emails)
-
-    with tab_ai:
-        st.subheader("Smart Email Classification")
+    tab_all, tab_ai = st.tabs(["📧 All Emails", "🤖    with tab_ai:
+        st.subheader("🤖 Smart Email Classification")
         with st.spinner("Analysing with Gemini AI…"):
             result = classify_emails_with_gemini(emails)
 
@@ -509,9 +504,16 @@ def _render_email_page() -> None:
                 "General": "📂", 
                 "Spam": "🗑️"
             }
+            category_badge_type = {
+                "Job Application": "employee",
+                "Important": "rejected",
+                "General": "hr",
+                "Spam": "cancelled"
+            }
             
             for category in ["Job Application", "Important", "General", "Spam"]:
                 mails = result.get(category, [])
+                badge_lbl = render_badge(category, category_badge_type[category])
                 with st.expander(
                     f"{category_emoji[category]} {category} ({len(mails)})",
                     expanded=(category in ["Job Application", "Important"]),
@@ -520,31 +522,61 @@ def _render_email_page() -> None:
                         for mail in mails:
                             subject = mail.get("subject", "(no subject)")
                             sender = mail.get("from", "")
-                            st.write(f"➡️ **{subject}** — {sender}")
+                            
+                            st.markdown(
+                                f"""
+                                <div class="glass-card" style="padding: 12px 18px; margin-bottom: 8px; border-left: 3px solid #3363b0;">
+                                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                                        <div>
+                                            <b style="font-size:14px; color:#ffffff;">{subject}</b>
+                                            <div style="font-size:12px; color:#a0aec0; margin-top:3px;">From: {sender}</div>
+                                        </div>
+                                        <div>
+                                            {badge_lbl}
+                                        </div>
+                                    </div>
+                                </div>
+                                """,
+                                unsafe_allow_html=True
+                            )
                             
                             # Parse Resume if it's a Job Application
                             if category == "Job Application":
-                                if st.button(f"🔍 AI Analyze Resume", key=f"analyze_{mail['id']}"):
+                                if st.button(f"🔍 AI Analyze Resume", key=f"analyze_{mail['id']}", use_container_width=True):
                                     with st.spinner("Extracting intelligence..."):
                                         parsed = parse_resume_with_gemini(mail.get("body", ""))
                                         if parsed:
-                                            st.info(f"**Candidate:** {parsed.get('Candidate Name')}")
-                                            st.write(f"**Role:** {parsed.get('Role Applied For')}")
-                                            st.write(f"**Experience:** {parsed.get('Years of Experience')}")
-                                            st.write(f"**Education:** {parsed.get('Education')}")
-                                            
+                                            candidate_name = parsed.get('Candidate Name', 'Unknown')
+                                            role_applied = parsed.get('Role Applied For', 'None Specified')
+                                            experience = parsed.get('Years of Experience', 'Unknown')
+                                            education = parsed.get('Education', 'Unknown')
                                             skills = parsed.get('Skills', [])
-                                            if skills:
-                                                st.write("**Skills:**")
-                                                # create a neat tag layout
-                                                tags = " ".join([f"`{s}`" for s in skills])
-                                                st.markdown(tags)
-                                                
-                                            st.success(f"**AI Fit Summary:** {parsed.get('Summary')}")
+                                            summary = parsed.get('Summary', 'No summary provided.')
+                                            
+                                            skills_tags = " ".join([f"<span class='custom-badge badge-employee' style='margin-right:5px; margin-bottom:5px;'>{s}</span>" for s in skills])
+                                            
+                                            st.markdown(
+                                                f"""
+                                                <div class="glass-card" style="border: 1px solid rgba(16, 185, 129, 0.3); background: rgba(16, 185, 129, 0.05); padding: 18px; margin-top: 10px;">
+                                                    <h4 style="margin: 0 0 12px 0; color: #10b981; font-family: 'Outfit';">🎯 Candidate Parse Success</h4>
+                                                    <div style="font-size: 14px; margin-bottom: 6px;"><b>Candidate Name:</b> {candidate_name}</div>
+                                                    <div style="font-size: 14px; margin-bottom: 6px;"><b>Role Applied For:</b> {role_applied}</div>
+                                                    <div style="font-size: 14px; margin-bottom: 6px;"><b>Years of Experience:</b> {experience}</div>
+                                                    <div style="font-size: 14px; margin-bottom: 6px;"><b>Education:</b> {education}</div>
+                                                    <div style="margin-bottom: 12px; font-size: 14px;"><b>Skills:</b><br>{skills_tags if skills_tags else 'None listed'}</div>
+                                                    <div style="padding: 10px; background: rgba(255,255,255,0.04); border-radius: 8px; border-left: 3px solid #10b981; font-style: italic; font-size:13px; color:#e2e8f0;">
+                                                        "{summary}"
+                                                    </div>
+                                                </div>
+                                                """,
+                                                unsafe_allow_html=True
+                                            )
                                         else:
                                             st.error("Failed to parse resume intelligence.")
                                 st.markdown("---")
                     else:
                         st.info("No emails in this category.")
+        else:
+            st.error("Classification failed. Check your GEMINI_API_KEY in .env.")")
         else:
             st.error("Classification failed. Check your GEMINI_API_KEY in .env.")
